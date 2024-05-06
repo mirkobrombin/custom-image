@@ -108,7 +108,9 @@ jobs:
         echo -n "${{ env.REPO_OWNER_LOWERCASE }}/${{ env.CUSTOM_IMAGE_NAME }}" > ./includes.container/image-info/image-name
 
     - name: Build the Docker image
-      run: docker image build -f Containerfile --tag "${{ env.IMAGE_TAG }}" .
+      run: |
+        docker pull ghcr.io/taukakao/custom:main
+        docker image build -f Containerfile --tag "${{ env.IMAGE_TAG }}" .
 
     - name: Push To GHCR
       run: |
