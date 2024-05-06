@@ -47,8 +47,8 @@ jobs:
         tags: ${{ env.IMAGE_TAG }}
         push: false
         load: true
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+        cache_from: type=gha
+        cache_to: type=gha,mode=min,scope=custom_image
 
     - name: List built images
       run: docker image ls
