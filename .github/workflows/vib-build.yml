@@ -48,9 +48,8 @@ jobs:
         context: .
         file: Containerfile
         tags: ${{ env.IMAGE_TAG }}
-        push: true
         cache-from: type=gha
         cache-to: type=gha,mode=min,scope=custom_image
 
     - name: List built images
-      run: docker image ls
+      run: docker buildx ls
