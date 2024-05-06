@@ -52,4 +52,5 @@ jobs:
     - name: Push To GHCR
       run: |
         docker login ghcr.io -u ${{ github.repository_owner }} -p ${{ secrets.GITHUB_TOKEN }}
-        docker image push "${{ env.IMAGE_TAG }}"
+        docker image ls
+        docker image push "${{ env.IMAGE_TAG }}":main
