@@ -3,91 +3,17 @@ name: Vib Build
 on:
   push:
     branches: [ "main" ]
-  schedule:
-    - cron: '21 3 * * *'
   workflow_dispatch:
 
 env:
   CUSTOM_IMAGE_NAME: custom
 
 jobs:
-  check_update:
-    runs-on: ubuntu-latest
-    outputs:
-      has_updates: ${{ steps.set_output.outputs.has_updates }}
-      base_image: ${{ steps.read_base_recipe.outputs.base_image }}
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get install -y jq skopeo libfyaml-utils
-
-      - name: Read base image name from recipe
-        id: read_base_recipe
-        run: |
-          BASE_IMAGE="$(fy-filter -f recipe.yml /stages/-1/base)"
-          echo The base image is $BASE_IMAGE
-          if [ -z $BASE_IMAGE ]; then exit 1; fi
-          echo "base_image=$BASE_IMAGE" >> "$GITHUB_OUTPUT"
-          echo "BASE_IMAGE=$BASE_IMAGE" >> "$GITHUB_ENV"
-
-      - name: get last successful run
-        if: ${{ github.ref_type == 'branch' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-        run: |
-          gh run list -b "${{ github.ref_name }}" -w "${{ github.workflow }}" -s "success" -L 1 --json databaseId > last_run.json
-          echo "LAST_RUN_ID=$(jq -r '.[0].databaseId' last_run.json)" >> "$GITHUB_ENV"
-
-      - name: Download previous digest
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: digest
-          github-token: ${{ github.token }}
-          run-id: ${{ env.LAST_RUN_ID }}
-
-      - name: Check if there was an update to the base image
-        run: |
-          touch digest.txt
-          mv digest.txt last_digest.txt
-          skopeo inspect --raw docker://${{ env.BASE_IMAGE }} | sha256sum > digest.txt
-          echo Old digest is: $(cat last_digest.txt)
-          echo New digest is: $(cat digest.txt)
-          echo "HAS_UPDATES=$(cmp -s digest.txt last_digest.txt; echo $?)" >> "$GITHUB_ENV"
-
-      - name: Upload current digest
-        uses: actions/upload-artifact@v4
-        with:
-          name: digest
-          path: digest.txt
-
-      - name: Set output
-        id: set_output
-        run: |
-          if [ ${{ github.event_name == 'schedule'}} == false ]
-          then
-            echo action was manually run, updating either way
-            echo "has_updates=true" >> "$GITHUB_OUTPUT"
-          elif [ ${{ env.HAS_UPDATES }} == 1 ]
-          then
-            echo base image was updated since last build
-            echo "has_updates=true" >> "$GITHUB_OUTPUT"
-          else
-            echo no updates to the base image since last build
-            echo "has_updates=false" >> "$GITHUB_OUTPUT"
-          fi
-
   build:
     runs-on: ubuntu-latest
-    needs: check_update
-    if: ${{ needs.check_update.outputs.has_updates == 'true' }}
     permissions:
       packages: write
+
     steps:
     - uses: actions/checkout@v4
 
@@ -99,18 +25,29 @@ jobs:
     - name: Generate image name
       run: |
         REPO_OWNER_LOWERCASE="$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')"
-        echo "REPO_OWNER_LOWERCASE=$REPO_OWNER_LOWERCASE">> "$GITHUB_ENV"
-        echo "IMAGE_TAG=ghcr.io/$REPO_OWNER_LOWERCASE/${{ env.CUSTOM_IMAGE_NAME }}:main">> "$GITHUB_ENV"
+        echo "REPO_OWNER_LOWERCASE=$REPO_OWNER_LOWERCASE" >> "$GITHUB_ENV"
+        echo "IMAGE_TAG=ghcr.io/$REPO_OWNER_LOWERCASE/${{ env.CUSTOM_IMAGE_NAME }}:main" >> "$GITHUB_ENV"
 
-    - name: Set image info
-      run: |
-        echo -n "${{ needs.check_update.outputs.base_image }}" > ./includes.container/image-info/base-image-name
-        echo -n "${{ env.REPO_OWNER_LOWERCASE }}/${{ env.CUSTOM_IMAGE_NAME }}" > ./includes.container/image-info/image-name
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
 
     - name: Build the Docker image
-      run: |
-        docker pull ghcr.io/taukakao/custom:main
-        docker image build -f Containerfile --tag "${{ env.IMAGE_TAG }}" .
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: Containerfile
+        tags: ${{ env.IMAGE_TAG }}
+        push: false
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
     - name: Push To GHCR
       run: |
