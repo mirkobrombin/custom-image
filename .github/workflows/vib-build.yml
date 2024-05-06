@@ -46,7 +46,6 @@ jobs:
         file: Containerfile
         tags: ${{ env.IMAGE_TAG }}
         push: false
-        load: true
         cache_from: type=gha
         cache_to: type=gha,mode=min,scope=custom_image
 
