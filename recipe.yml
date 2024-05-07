@@ -63,6 +63,7 @@ stages:
           - rm -rf /FsGuard 
           - rm -f ./minisign.pub ./minisign.key 
           - chmod +x /usr/sbin/init
+          - ls
 
   - name: cleanup2
     type: shell
