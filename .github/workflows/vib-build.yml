@@ -29,6 +29,19 @@ jobs:
         echo "REPO_OWNER_LOWERCASE=$REPO_OWNER_LOWERCASE" >> "$GITHUB_ENV"
         echo "IMAGE_TAG=ghcr.io/$REPO_OWNER_LOWERCASE/${{ env.CUSTOM_IMAGE_NAME }}:main" >> "$GITHUB_ENV"
 
+    - name: Docker meta
+      id: docker_meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          otel/opentelemetry-operator-bundle
+          ghcr.io/mirkobrombin/custom
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{raw}}
+          type=ref,event=branch
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
@@ -52,7 +65,8 @@ jobs:
       with:
         context: .
         file: Containerfile
-        tags: ${{ env.IMAGE_TAG }}
+        tags: ${{ steps.docker_meta.outputs.tags }}
+        labels: ${{ steps.docker_meta.outputs.labels }}
         push: true
         cache-from: type=gha
         cache-to: type=gha,mode=min,scope=custom_image
