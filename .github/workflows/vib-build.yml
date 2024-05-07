@@ -35,7 +35,7 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: |
-          ghcr.io/mirkobrombin/custom
+          ghcr.io/mirkobrombin/custom-image
         tags: |
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
@@ -69,8 +69,8 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.docker_meta.outputs.tags }}
         labels: ${{ steps.docker_meta.outputs.labels }}
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache
+        cache-from: type=gha
+        cache-to: type=gha,mode=min,scope=custom_image
 
     - name: List built images
       run: docker buildx ls
