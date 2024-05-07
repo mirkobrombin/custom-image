@@ -34,7 +34,6 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: |
-          otel/opentelemetry-operator-bundle
           ghcr.io/mirkobrombin/custom
         tags: |
           type=semver,pattern={{version}}
