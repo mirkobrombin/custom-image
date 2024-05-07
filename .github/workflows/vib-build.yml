@@ -8,12 +8,13 @@ on:
 env:
   CUSTOM_IMAGE_NAME: custom
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
     - uses: actions/checkout@v4
@@ -34,7 +35,7 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: |
-          ghcr.io/mirkobrombin/custom:main
+          ghcr.io/mirkobrombin/custom
         tags: |
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
@@ -43,13 +44,6 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
-    - name: Login to GHCR
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Cache Docker layers
       uses: actions/cache@v3
@@ -59,16 +53,24 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildx-
 
+    - name: Login to GitHub Package Registry
+      uses: docker/login-action@v3
+      if: ${{ github.event_name == 'push' }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Build and Push the Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         file: Containerfile
+        push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.docker_meta.outputs.tags }}
         labels: ${{ steps.docker_meta.outputs.labels }}
-        push: true
-        cache-from: type=gha
-        cache-to: type=gha,mode=min,scope=custom_image
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache
 
     - name: List built images
       run: docker buildx ls
