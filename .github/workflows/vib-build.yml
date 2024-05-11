@@ -64,6 +64,7 @@ jobs:
         labels: ${{ steps.docker_meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        platforms: linux/amd64
 
     - name: List built images
       run: docker buildx ls
