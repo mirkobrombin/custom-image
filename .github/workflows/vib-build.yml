@@ -7,6 +7,7 @@ on:
 
 env:
   CUSTOM_IMAGE_NAME: custom
+  BUILDX_NO_DEFAULT_ATTESTATIONS: 1
 
 permissions:
   contents: read
